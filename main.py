@@ -54,7 +54,7 @@ def serve(path):
     if not session.get('logged_in'):
         return send_from_directory(static_folder_path, 'login.html')
 
-    # 已登录，正常访问静态资源
+    
     if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
     else:
