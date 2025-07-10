@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request, jsonify, session
 from flask_cors import CORS
 from models.user import db
 from routes.user import user_bp
@@ -24,13 +24,37 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    ip = data.get('ip')
+    port = data.get('port')
+    username = data.get('username')
+    password = data.get('password')
+    # 这里可以添加实际的连接验证逻辑
+    if ip and port and username and password:
+        # 假设验证通过
+        session['logged_in'] = True
+        session['ip'] = ip
+        session['port'] = port
+        session['username'] = username
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'msg': '信息不完整'}), 400
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
     static_folder_path = app.static_folder
     if static_folder_path is None:
-            return "Static folder not configured", 404
+        return "Static folder not configured", 404
 
+    # 未登录时，始终返回login.html
+    if not session.get('logged_in'):
+        return send_from_directory(static_folder_path, 'login.html')
+
+    # 已登录，正常访问静态资源
     if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
     else:

@@ -31,7 +31,6 @@ def browse_directory():
     # 安全检查：确保路径是绝对路径
     if not os.path.isabs(path):
         path = os.path.abspath(path)
-    print(path)
     # 检查路径是否存在
     if not os.path.exists(path):
         return jsonify({'error': 'Path does not exist'}), 404
@@ -81,10 +80,14 @@ def browse_directory():
             except (OSError, PermissionError) as e:
                 print(f"Error accessing {item_path}: {e}")
                 continue
-        
+        path = path if path.endswith("/") else path + "/"
+        print("===================")
+        print(path)
+        normal_path = path[:-1] if path.endswith("/") and len(path) > 1 else path
+        print(normal_path)
         return jsonify({
             'current_path': path,
-            'parent_path': os.path.dirname(path) if path != '/' else None,
+            'parent_path': os.path.dirname(normal_path) if normal_path != '/' else None, # 去掉最后一个/
             'items': items,
             'images': images
         })
