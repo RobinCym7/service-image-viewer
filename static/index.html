@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器端图片查看器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .path-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: #34495e;
+            color: white;
+        }
+
+        .path-input::placeholder {
+            color: #bdc3c7;
+        }
+
+        .nav-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-button:hover {
+            background-color: #2980b9;
+        }
+
+        .nav-button:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .left-panel {
+            width: 300px;
+            background-color: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel {
+            flex: 1;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background-color: #ecf0f1;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .file-item.directory {
+            font-weight: 500;
+        }
+
+        .file-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .file-name {
+            flex: 1;
+            font-size: 14px;
+            color: #2c3e50;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .image-grid {
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .image-item {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .image-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .image-thumbnail {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background-color: #f8f9fa;
+        }
+
+        .image-info {
+            padding: 12px;
+        }
+
+        .image-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .image-size {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .error {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #e74c3c;
+            font-size: 16px;
+        }
+
+        .empty {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <input type="text" class="path-input" id="pathInput" placeholder="输入路径 (例如: /home/user/pictures)" value="/">
+        <button class="nav-button" onclick="navigateToPath()">跳转</button>
+        <button class="nav-button" id="backButton" onclick="goBack()" disabled>返回</button>
+        <button class="nav-button" onclick="refreshCurrentPath()">刷新</button>
+    </div>
+
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="panel-header">文件和文件夹</div>
+            <div class="file-list" id="fileList">
+                <div class="loading">正在加载...</div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel-header">图片预览</div>
+            <div class="image-grid" id="imageGrid">
+                <div class="empty">请选择包含图片的文件夹</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片查看模态框 -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" src="" alt="">
+        </div>
+    </div>
+
+    <script>
+        let currentPath = '/';
+        let pathHistory = ['/'];
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 获取文件图标
+        function getFileIcon(isDirectory, fileName) {
+            if (isDirectory) {
+                return '📁';
+            }
+            const ext = fileName.split('.').pop().toLowerCase();
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
+            if (imageExts.includes(ext)) {
+                return '🖼️';
+            }
+            return '📄';
+        }
+
+        // 浏览目录
+        async function browseDirectory(path) {
+            const fileList = document.getElementById('fileList');
+            const imageGrid = document.getElementById('imageGrid');
+            
+            fileList.innerHTML = '<div class="loading">正在加载...</div>';
+            imageGrid.innerHTML = '<div class="loading">正在加载图片...</div>';
+
+            try {
+                const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '加载失败');
+                }
+
+                currentPath = data.current_path;
+                document.getElementById('pathInput').value = currentPath;
+                
+                // 更新返回按钮状态
+                const backButton = document.getElementById('backButton');
+                backButton.disabled = !data.parent_path;
+
+                // 渲染文件列表
+                renderFileList(data.items, data.parent_path);
+                
+                // 渲染图片网格
+                renderImageGrid(data.images);
+
+            } catch (error) {
+                console.error('Error browsing directory:', error);
+                fileList.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                imageGrid.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+            }
+        }
+
+        // 渲染文件列表
+        function renderFileList(items, parentPath) {
+            const fileList = document.getElementById('fileList');
+            let html = '';
+
+            // 添加返回上级目录选项
+            if (parentPath) {
+                html += `
+                    <div class="file-item directory" onclick="navigateToDirectory('${parentPath}')">
+                        <span class="file-icon">⬆️</span>
+                        <span class="file-name">..</span>
+                    </div>
+                `;
+            }
+
+            // 先显示目录，再显示文件
+            const directories = items.filter(item => item.is_directory);
+            const files = items.filter(item => !item.is_directory);
+
+            [...directories, ...files].forEach(item => {
+                const icon = getFileIcon(item.is_directory, item.name);
+                const sizeText = item.is_directory ? '' : formatFileSize(item.size);
+                const clickHandler = item.is_directory ? 
+                    `navigateToDirectory('${item.path}/')` : 
+                    `viewFile('${item.path}')`;
+
+                html += `
+                    <div class="file-item ${item.is_directory ? 'directory' : ''}" onclick="${clickHandler}">
+                        <span class="file-icon">${icon}</span>
+                        <span class="file-name" title="${item.name}">${item.name}</span>
+                        <span class="file-size">${sizeText}</span>
+                    </div>
+                `;
+            });
+
+            if (html === '') {
+                html = '<div class="empty">此文件夹为空</div>';
+            }
+
+            fileList.innerHTML = html;
+        }
+
+        // 渲染图片网格
+        function renderImageGrid(images) {
+            const imageGrid = document.getElementById('imageGrid');
+            
+            if (images.length === 0) {
+                imageGrid.innerHTML = '<div class="empty">此文件夹中没有图片</div>';
+                return;
+            }
+
+            let html = '<div class="image-container">';
+            
+            images.forEach(image => {
+                html += `
+                    <div class="image-item" onclick="openImageModal('${image.path}', '${image.name}')">
+                        <img class="image-thumbnail" src="${image.thumbnail}" alt="${image.name}" loading="lazy">
+                        <div class="image-info">
+                            <div class="image-name" title="${image.name}">${image.name}</div>
+                            <div class="image-size">${formatFileSize(image.size)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            imageGrid.innerHTML = html;
+        }
+
+        // 导航到目录
+        function navigateToDirectory(path) {
+            if (path !== currentPath) {
+                pathHistory.push(currentPath);
+            }
+            console.log(pathHistory)
+            console.log(path)
+            browseDirectory(path);
+        }
+
+        // 导航到路径
+        function navigateToPath() {
+            const path = document.getElementById('pathInput').value.trim();
+            if (path) {
+                navigateToDirectory(path);
+            }
+        }
+
+        // 返回上一个目录
+        function goBack() {
+            if (pathHistory.length > 1) {
+                pathHistory.pop(); // 移除当前路径
+                const previousPath = pathHistory[pathHistory.length - 1];
+                browseDirectory(previousPath);
+            }
+        }
+
+        // 刷新当前路径
+        function refreshCurrentPath() {
+            browseDirectory(currentPath);
+        }
+
+        // 查看文件
+        function viewFile(filePath) {
+            // 对于图片文件，在模态框中打开
+            const ext = filePath.split('.').pop().toLowerCase();
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'tif'];
+            if (imageExts.includes(ext)) {
+                openImageModal(filePath, filePath.split('/').pop());
+            }
+        }
+
+        // 打开图片模态框
+        function openImageModal(imagePath, imageName) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            
+            modalImage.src = `/api/image/${encodeURIComponent(imagePath)}`;
+            modalImage.alt = imageName;
+            modal.style.display = 'block';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            const modal = document.getElementById('imageModal');
+            modal.style.display = 'none';
+        }
+
+        // 键盘事件
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+            if (event.key === 'Enter' && event.target.id === 'pathInput') {
+                navigateToPath();
+            }
+        });
+
+        // 点击模态框背景关闭
+        document.getElementById('imageModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeModal();
+            }
+        });
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            browseDirectory('/');
+        });
+    </script>
+</body>
+</html>
+
